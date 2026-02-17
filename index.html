@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Nepal Provincial Economy Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { font-family: sans-serif; margin: 20px; background: #f9f9f9; }
+        .container { display: flex; flex-wrap: wrap; gap: 20px; }
+        #map { height: 500px; flex: 1; min-width: 400px; border-radius: 8px; }
+        .charts { flex: 1; min-width: 400px; }
+        .header { text-align: center; margin-bottom: 30px; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>🇳🇵 Nepal Provincial Economy Dashboard (2024/25)</h1>
+        <p>Live data synced from Google Sheets</p>
+    </div>
+
+    <div class="container">
+        <div id="map"></div>
+
+        <div class="charts">
+            <canvas id="gdpChart"></canvas>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // 1. REPLACE THIS with your Published Google Sheet CSV Link
+        const SHEET_CSV_URL = 'YOUR_PUBLISHED_CSV_LINK_HERE';
+
+        async function loadDashboard() {
+            const response = await fetch(SHEET_CSV_URL);
+            const data = await response.text();
+            const rows = data.split('\n').slice(1);
+            
+            const labels = [];
+            const shares = [];
+
+            rows.forEach(row => {
+                const cols = row.split(',');
+                if(cols[0]) {
+                    labels.push(cols[0]);
+                    shares.push(parseFloat(cols[1]));
+                }
+            });
+
+            // Render Chart
+            new Chart(document.getElementById('gdpChart'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'GDP Share (%)',
+                        data: shares,
+                        backgroundColor: '#2c3e50'
+                    }]
+                }
+            });
+
+            // Initialize Map (Standard Nepal View)
+            const map = L.map('map').setView([28.3949, 84.1240], 7);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        }
+
+        loadDashboard();
+    </script>
+</body>
+</html>
