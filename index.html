@@ -1,74 +1,71 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>Nepal Provincial Economy Dashboard</title>
+    <title>Nepal State Economies</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { font-family: sans-serif; margin: 20px; background: #f9f9f9; }
-        .container { display: flex; flex-wrap: wrap; gap: 20px; }
-        #map { height: 500px; flex: 1; min-width: 400px; border-radius: 8px; }
-        .charts { flex: 1; min-width: 400px; }
-        .header { text-align: center; margin-bottom: 30px; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; background: #fdfdfd; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        #map { height: 500px; border-radius: 12px; border: 1px solid #ddd; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h1 { color: #2c3e50; text-align: center; }
     </style>
 </head>
 <body>
-
-    <div class="header">
-        <h1>🇳🇵 Nepal Provincial Economy Dashboard (2024/25)</h1>
-        <p>Live data synced from Google Sheets</p>
-    </div>
-
-    <div class="container">
+    <h1>🇳🇵 Nepal Provincial Economy Dashboard</h1>
+    <div class="grid">
         <div id="map"></div>
-
-        <div class="charts">
-            <canvas id="gdpChart"></canvas>
+        <div class="card">
+            <canvas id="gdpBarChart"></canvas>
         </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // 1. REPLACE THIS with your Published Google Sheet CSV Link
-        const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQldKWcI7WExULTZwH6U9GcprEO2oeh1Qh2LWAzlDWqbyx0B9S2vZKW5rlMQNMX7x-Z7cSUgCnqAvpW/pub?gid=1292691359&single=true&output=csv';
+        // REPLACE with your Published CSV URL
+        const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQldKWcI7WExULTZwH6U9GcprEO2oeh1Qh2LWAzlDWqbyx0B9S2vZKW5rlMQNMX7x-Z7cSUgCnqAvpW/pub?gid=1292691359&single=true&output=csv'; 
+        const GEOJSON_URL = 'https://raw.githubusercontent.com/mesaugat/geoJSON-Nepal/master/nepal-states.geojson';
 
-        async function loadDashboard() {
-            const response = await fetch(SHEET_CSV_URL);
-            const data = await response.text();
-            const rows = data.split('\n').slice(1);
-            
-            const labels = [];
-            const shares = [];
-
+        async function init() {
+            // 1. Fetch Data
+            const rows = (await (await fetch(CSV_URL)).text()).split('\n').slice(1);
+            const dataMap = {};
             rows.forEach(row => {
-                const cols = row.split(',');
-                if(cols[0]) {
-                    labels.push(cols[0]);
-                    shares.push(parseFloat(cols[1]));
-                }
+                const [name, share, growth, pci] = row.split(',');
+                dataMap[name.trim()] = { share: parseFloat(share), growth: parseFloat(growth), pci: parseFloat(pci) };
             });
 
-            // Render Chart
-            new Chart(document.getElementById('gdpChart'), {
+            // 2. Initialize Map
+            const map = L.map('map').setView([28.3949, 84.1240], 7);
+            const geoData = await (await fetch(GEOJSON_URL)).json();
+
+            L.geoJson(geoData, {
+                style: (f) => ({
+                    fillColor: getColor(dataMap[f.properties.name]?.share || 0),
+                    weight: 2, opacity: 1, color: 'white', fillOpacity: 0.8
+                }),
+                onEachFeature: (f, l) => {
+                    const d = dataMap[f.properties.name];
+                    l.bindPopup(`<b>${f.properties.name}</b><br>GDP Share: ${d.share}%<br>Growth: ${d.growth}%`);
+                }
+            }).addTo(map);
+
+            // 3. Initialize Chart
+            new Chart(document.getElementById('gdpBarChart'), {
                 type: 'bar',
                 data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'GDP Share (%)',
-                        data: shares,
-                        backgroundColor: '#2c3e50'
-                    }]
+                    labels: Object.keys(dataMap),
+                    datasets: [{ label: 'GDP Share (%)', data: Object.values(dataMap).map(v => v.share), backgroundColor: '#3498db' }]
                 }
             });
-
-            // Initialize Map (Standard Nepal View)
-            const map = L.map('map').setView([28.3949, 84.1240], 7);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         }
 
-        loadDashboard();
+        function getColor(d) {
+            return d > 30 ? '#084594' : d > 15 ? '#2171b5' : d > 10 ? '#4292c6' : '#9ecae1';
+        }
+
+        init();
     </script>
 </body>
-
 </html>
